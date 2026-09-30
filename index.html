@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Penny Network Map</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{--bg:#060a13;--panel:rgba(10,16,30,.76);--line:rgba(148,163,184,.14);--text:#e6edf7;--muted:#8b98ad;--accent:#5eead4;--accent2:#818cf8;--danger:#ff4d6d;--warn:#fbbf24;--ok:#34d399}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;overflow:hidden;font-size:13px}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+#map{position:absolute;inset:0;z-index:0;background:#040710}
+#map .leaflet-tile-pane,#map .leaflet-labels-pane{filter:sepia(.35) hue-rotate(182deg) saturate(2.3) brightness(.92) contrast(1.05)}
+.fx{position:absolute;inset:0;z-index:1;pointer-events:none;background:
+ radial-gradient(ellipse at 50% 45%,transparent 50%,rgba(2,4,10,.78) 100%),
+ linear-gradient(rgba(94,234,212,.035) 1px,transparent 1px) 0 0/48px 48px,
+ linear-gradient(90deg,rgba(94,234,212,.035) 1px,transparent 1px) 0 0/48px 48px}
+.scan{position:absolute;left:0;right:0;height:180px;z-index:1;pointer-events:none;background:linear-gradient(180deg,transparent,rgba(94,234,212,.05),transparent);animation:scan 7s linear infinite}
+@keyframes scan{from{top:-180px}to{top:100%}}
+.glass{position:absolute;z-index:10;background:var(--panel);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);box-shadow:0 20px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.05)}
+.topbar{top:14px;left:14px;right:14px;height:58px;display:flex;align-items:center;gap:16px;padding:0 18px}
+.logo{display:flex;align-items:center;gap:10px}
+.mark{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:18px;color:#041018;background:linear-gradient(135deg,#5eead4,#818cf8);box-shadow:0 0 24px rgba(94,234,212,.45)}
+.logo b{display:block;font-size:15px}.logo span{font-size:11px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
+.sep{width:1px;height:28px;background:var(--line)}
+.client{color:var(--muted)}.client b{color:var(--text)}
+.grow{flex:1}
+.live{display:flex;align-items:center;gap:8px;font-weight:700;font-size:11px;letter-spacing:.16em;color:var(--ok)}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:blink 1.6s infinite}
+@keyframes blink{0%{box-shadow:0 0 0 0 rgba(52,211,153,.7)}70%{box-shadow:0 0 0 10px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+.clock{font-size:14px;color:#cfe9ff}
+.badge{font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:5px 9px;border-radius:999px;border:1px solid rgba(251,191,36,.4);color:var(--warn);white-space:nowrap}
+.badge.g{border-color:rgba(52,211,153,.4);color:var(--ok)}
+.left{top:84px;left:14px;bottom:64px;width:318px;padding:16px;overflow:auto}
+.right{top:84px;right:14px;bottom:64px;width:384px;padding:18px;overflow:auto}
+.left::-webkit-scrollbar,.right::-webkit-scrollbar{width:6px}.left::-webkit-scrollbar-thumb,.right::-webkit-scrollbar-thumb{background:rgba(148,163,184,.2);border-radius:9px}
+h4{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:18px 0 9px;font-weight:600;display:flex;align-items:center;gap:8px}
+h4:first-child{margin-top:0}
+.cnt{background:rgba(255,77,109,.15);color:var(--danger);border-radius:999px;padding:1px 7px;letter-spacing:0}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kpi{padding:10px 11px;border-radius:12px;background:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.01));border:1px solid var(--line);position:relative;overflow:hidden}
+.kpi .l{font-size:10.5px;color:var(--muted)}
+.kpi .v{font-size:24px;font-weight:800;letter-spacing:-.02em;margin-top:2px;background:linear-gradient(90deg,#fff,#a5f3fc);-webkit-background-clip:text;background-clip:text;color:transparent}
+.kpi.warn .v{background:linear-gradient(90deg,#fff,#fcd34d);-webkit-background-clip:text;background-clip:text}
+.kpi.bad .v{background:linear-gradient(90deg,#fff,#fda4af);-webkit-background-clip:text;background-clip:text}
+.kpi .s{font-size:10px;color:var(--muted)}
+.kpi svg{position:absolute;right:6px;top:10px;width:56px;height:20px;opacity:.8}
+.sys{display:grid;gap:6px}
+.sy{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:10px;border:1px solid var(--line);font-size:11.5px;background:rgba(255,255,255,.02)}
+.sy i{width:7px;height:7px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c);flex:none}
+.sy b{font-weight:600}.sy span{color:var(--muted);font-size:10.5px;margin-left:auto;text-align:right}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.03);cursor:pointer;user-select:none;transition:.2s;font-size:12px}
+.chip i{width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c)}
+.chip small{color:var(--muted)}
+.chip.off{opacity:.35}.chip:hover{border-color:rgba(255,255,255,.3)}
+.layers{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.lay{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:10px;border:1px solid var(--line);cursor:pointer;font-size:11.5px;user-select:none;transition:.2s}
+.lay .sw{width:24px;height:14px;border-radius:9px;background:rgba(148,163,184,.25);position:relative;flex:none;transition:.2s}
+.lay .sw:after{content:'';position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:#cbd5e1;transition:.2s}
+.lay.on{border-color:rgba(94,234,212,.35);background:rgba(94,234,212,.06)}
+.lay.on .sw{background:linear-gradient(90deg,#5eead4,#818cf8)}.lay.on .sw:after{left:12px;background:#fff}
+.scen{display:flex;gap:11px;align-items:center;padding:9px 11px;border-radius:12px;border:1px solid var(--line);cursor:pointer;margin-bottom:7px;transition:.2s;background:rgba(255,255,255,.02)}
+.scen:hover{border-color:rgba(129,140,248,.5);transform:translateX(2px)}
+.scen.active{border-color:rgba(94,234,212,.6);background:linear-gradient(90deg,rgba(94,234,212,.12),rgba(129,140,248,.06));box-shadow:0 0 24px rgba(94,234,212,.12)}
+.scen .ic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;flex:none;background:rgba(129,140,248,.14);color:#c7d2fe}
+.scen.active .ic{background:linear-gradient(135deg,#5eead4,#818cf8);color:#041018}
+.ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.scen b{display:block;font-size:12.5px}.scen span{font-size:11px;color:var(--muted)}
+.reset{margin-top:4px;font-size:11.5px;color:var(--muted);cursor:pointer;display:inline-flex;gap:6px;align-items:center}.reset:hover{color:var(--text)}
+.reset svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.eyebrow{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.right h2{font-size:19px;font-weight:700;letter-spacing:-.01em;margin:4px 0 3px;line-height:1.3}
+.sub{color:var(--muted);font-size:12px}
+.ph{display:flex;gap:12px;align-items:flex-start}
+.ph .dot{width:12px;height:12px;border-radius:50%;background:var(--c);box-shadow:0 0 14px var(--c);margin-top:6px;flex:none}
+.row3{display:flex;gap:10px;align-items:center;margin-top:14px}
+.stat{flex:1;padding:10px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.03)}
+.stat span{display:block;font-size:10.5px;color:var(--muted)}.stat b{font-size:16px}
+.ring{--p:80;--c:var(--ok);width:76px;height:76px;border-radius:50%;background:conic-gradient(var(--c) calc(var(--p)*1%),rgba(255,255,255,.07) 0);display:grid;place-items:center;position:relative;flex:none}
+.ring:before{content:'';position:absolute;inset:7px;border-radius:50%;background:#0a1222}
+.ring div{position:relative;text-align:center}.ring b{font-size:21px;display:block;line-height:1}.ring span{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+.ring.big{width:104px;height:104px}.ring.big b{font-size:28px}
+.li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border-radius:10px;border:1px solid var(--line);margin-bottom:6px;background:rgba(255,255,255,.02)}
+.li b{display:block;font-size:12px;font-weight:600}.li span{font-size:11px;color:var(--muted)}
+.li.click{cursor:pointer;transition:.15s}.li.click:hover{border-color:rgba(94,234,212,.4);background:rgba(94,234,212,.05)}
+.li .l2{display:flex;gap:9px;align-items:center;min-width:0}.li .l2>div{min-width:0}
+.bul{width:7px;height:7px;border-radius:50%;flex:none;background:var(--c);box-shadow:0 0 8px var(--c)}
+.tag{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.tag.ok{color:var(--ok);background:rgba(52,211,153,.12)}.tag.warn{color:var(--warn);background:rgba(251,191,36,.13)}.tag.bad{color:var(--danger);background:rgba(255,77,109,.14)}
+.tag.info{color:#c7d2fe;background:rgba(129,140,248,.15)}
+.prog{margin-bottom:11px}
+.pl{display:flex;align-items:center;gap:7px;font-size:12px}.pl b{margin-left:auto}
+.pl span.m{color:var(--muted);font-size:11px}
+.swt{width:8px;height:8px;border-radius:2px;flex:none}
+.bar{height:6px;border-radius:9px;background:rgba(255,255,255,.07);margin:6px 0 4px;overflow:hidden;position:relative}
+.bar i{display:block;height:100%;border-radius:9px;box-shadow:0 0 12px currentColor;animation:grow 1.2s cubic-bezier(.2,.8,.2,1) both}
+.bar.rp{overflow:visible}.bar.rp em{position:absolute;left:25%;top:-3px;bottom:-3px;width:2px;background:#fff;opacity:.55;border-radius:2px}
+@keyframes grow{from{width:0!important}}
+.pn{font-size:10.5px;color:var(--muted)}
+.card{padding:12px;border-radius:12px;border:1px solid var(--line);background:linear-gradient(160deg,rgba(94,234,212,.07),rgba(129,140,248,.04));margin-top:12px;font-size:12px;line-height:1.55}
+.card .ct{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.card.ok{background:linear-gradient(160deg,rgba(52,211,153,.14),rgba(52,211,153,.03));border-color:rgba(52,211,153,.35)}
+.card.bad{background:linear-gradient(160deg,rgba(255,77,109,.12),rgba(255,77,109,.02));border-color:rgba(255,77,109,.35)}
+.card .nums{display:flex;gap:14px;margin-top:6px}.card .nums div{font-size:11px;color:var(--muted)}.card .nums b{display:block;font-size:16px;color:var(--text)}
+.btn{margin-top:14px;width:100%;padding:11px;border-radius:12px;border:0;cursor:pointer;font:600 12.5px Inter,sans-serif;color:#041018;background:linear-gradient(90deg,#5eead4,#818cf8);box-shadow:0 8px 30px rgba(94,234,212,.25);transition:.2s}
+.btn:hover{transform:translateY(-1px)}
+.btn.sm{width:auto;padding:7px 12px;margin-top:8px;font-size:11.5px}
+.steps{margin-top:12px;position:relative;padding-left:18px}
+.steps:before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:linear-gradient(var(--accent),var(--accent2))}
+.step{position:relative;margin-bottom:10px;font-size:12px}.step:before{content:'';position:absolute;left:-17px;top:4px;width:10px;height:10px;border-radius:50%;background:#0a1222;border:2px solid var(--accent)}
+.step span{display:block;color:var(--muted);font-size:11px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.seg{display:flex;gap:6px;margin-top:12px}
+.seg button{flex:1;padding:8px 4px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--text);font:500 11.5px Inter,sans-serif;cursor:pointer}
+.seg button.on{border-color:rgba(94,234,212,.6);background:rgba(94,234,212,.12)}
+.ticker{left:14px;right:14px;bottom:14px;height:38px;display:flex;align-items:center;overflow:hidden;border-radius:12px}
+.tk-label{flex:none;padding:0 14px;height:100%;display:flex;align-items:center;gap:8px;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);border-right:1px solid var(--line)}
+.tk-track{flex:1;overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}
+#tk{display:inline-flex;white-space:nowrap;animation:marq 80s linear infinite}
+#tk span{padding:0 26px;color:#b6c2d6;font-size:12px;border-right:1px solid var(--line)}
+#tk b{color:#fff;font-weight:600}#tk b.r{color:var(--danger)}#tk b.a{color:var(--warn)}#tk b.g{color:var(--ok)}
+@keyframes marq{to{transform:translateX(-50%)}}
+#toast{position:absolute;z-index:20;left:50%;top:86px;transform:translate(-50%,-20px);opacity:0;pointer-events:none;padding:11px 16px;border-radius:12px;background:rgba(10,18,34,.95);border:1px solid rgba(94,234,212,.4);box-shadow:0 10px 40px rgba(0,0,0,.5),0 0 30px rgba(94,234,212,.15);transition:.35s cubic-bezier(.2,.8,.2,1);font-size:12.5px}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+/* phone mock */
+.phone{position:absolute;z-index:12;right:414px;bottom:70px;width:252px;height:528px;border-radius:38px;padding:10px;background:linear-gradient(160deg,#1e293b,#0b1220);border:1px solid rgba(255,255,255,.14);box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 40px rgba(94,234,212,.14);opacity:0;transform:translateY(30px) scale(.96);pointer-events:none;transition:.45s cubic-bezier(.2,.8,.2,1)}
+.phone.show{opacity:1;transform:none;pointer-events:auto}
+.ph-cap{position:absolute;top:-24px;left:0;right:0;text-align:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.notch{position:absolute;top:18px;left:50%;transform:translateX(-50%);width:78px;height:20px;border-radius:12px;background:#0b1220;z-index:2}
+.scr{height:100%;border-radius:30px;background:#f8fafc;color:#0f172a;overflow:hidden;display:flex;flex-direction:column;font-family:Inter,sans-serif}
+.ph-top{padding:40px 16px 14px;background:linear-gradient(135deg,#0f766e,#4338ca);color:#fff}
+.ph-top b{display:block;font-size:17px}.ph-top small{opacity:.85;font-size:12px}
+.ph-body{padding:14px 16px;flex:1;display:flex;flex-direction:column;gap:11px}
+.ph-item{display:flex;gap:10px;align-items:center}
+.ph-ic{width:50px;height:50px;border-radius:14px;background:#fef3c7;display:grid;place-items:center;flex:none}
+.ph-ic svg{width:28px;height:28px;stroke:#b45309;fill:none;stroke-width:1.8;stroke-linejoin:round}
+.ph-item b{display:block;font-size:16px}.ph-item span{font-size:12px;color:#b45309;font-weight:600}
+.ph-bar{height:10px;border-radius:9px;background:#e2e8f0;position:relative}
+.ph-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:9px;background:linear-gradient(90deg,#ef4444,#f59e0b)}
+.ph-bar em{position:absolute;top:-4px;bottom:-4px;width:2px;background:#0f172a;left:25%}
+.ph-qty{display:flex;align-items:center;justify-content:space-between;background:#f1f5f9;border-radius:16px;padding:8px}
+.ph-qty button{width:44px;height:44px;border-radius:12px;border:0;background:#fff;font-size:22px;font-weight:700;color:#0f172a;box-shadow:0 2px 6px rgba(0,0,0,.08);cursor:pointer}
+.ph-qty div{text-align:center}.ph-qty b{font-size:28px;display:block;line-height:1.1}.ph-qty small{font-size:11px;color:#64748b}
+.ph-sup{font-size:12px;color:#334155;line-height:1.75;background:#f1f5f9;border-radius:12px;padding:9px 11px}
+.ph-btn{margin-top:auto;padding:14px;border:0;border-radius:16px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font:700 17px Inter,sans-serif;cursor:pointer;box-shadow:0 8px 20px rgba(16,185,129,.35)}
+.ph-note{font-size:10.5px;color:#64748b;text-align:center}
+.ph-done{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px}
+.ph-done .okc{width:74px;height:74px;border-radius:50%;background:#d1fae5;display:grid;place-items:center;animation:pop2 .5s cubic-bezier(.2,1.6,.4,1)}
+.ph-done svg{width:40px;height:40px;stroke:#059669;stroke-width:3;fill:none}
+.ph-done b{font-size:18px}.ph-done span{font-size:12px;color:#64748b}
+@keyframes pop2{from{transform:scale(.3)}}
+/* map objects */
+path.store{transition:opacity .4s}
+path.pop{animation:fadein .7s both}
+@keyframes fadein{from{opacity:0}}
+#map.dim path.store{opacity:.1}
+#map.dim path.store.hl{opacity:1}
+#map.dim .terr{opacity:.25}
+path.flow{stroke-dasharray:3 9;animation:flow 1.1s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-24}}
+.pulse{border-radius:50%;position:relative}
+.pulse:before,.pulse:after{content:'';position:absolute;inset:0;border-radius:50%;border:2px solid var(--c);opacity:0;animation:ring 2s ease-out infinite}
+.pulse:after{animation-delay:1s}
+@keyframes ring{0%{transform:scale(.15);opacity:1}100%{transform:scale(1);opacity:0}}
+.truck{width:100%;height:100%;border-radius:50%;background:var(--c);box-shadow:0 0 6px 2px var(--c),0 0 18px 4px color-mix(in srgb,var(--c) 45%,transparent)}
+.truck.cold{animation:coldblink .8s steps(2) infinite}
+@keyframes coldblink{50%{opacity:.35}}
+.selr{width:100%;height:100%;border-radius:50%;border:2px solid #fff;box-shadow:0 0 16px #fff}
+.dc{position:relative;width:34px;height:34px}
+.dc-ring{position:absolute;inset:-6px;border-radius:50%;border:1.5px dashed rgba(94,234,212,.7);animation:spin 9s linear infinite}
+.dc-core{position:absolute;inset:4px;border-radius:9px;transform:rotate(45deg);background:linear-gradient(135deg,#5eead4,#818cf8);box-shadow:0 0 22px rgba(94,234,212,.7)}
+.dc-t{position:absolute;inset:0;display:grid;place-items:center;font:800 9px Inter;color:#041018}
+.dc-label{position:absolute;left:44px;top:2px;white-space:nowrap;font-size:12.5px;font-weight:700;color:#e6fffb;text-shadow:0 0 8px #000,0 0 3px #000}
+.dc-label small{display:block;font:600 9.5px Inter;color:#94a3b8;letter-spacing:.06em}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sup{width:12px;height:12px;transform:rotate(45deg);background:var(--c);border:1.5px solid rgba(255,255,255,.8);box-shadow:0 0 12px var(--c)}
+.heat{border-radius:50%;background:radial-gradient(circle,rgba(255,140,60,.6),rgba(255,60,110,.22) 38%,transparent 70%);mix-blend-mode:screen}
+.newsite{width:100%;height:100%;border-radius:50%;border:3px solid #c4b5fd;background:rgba(196,181,253,.15);box-shadow:0 0 16px #a78bfa}
+.money{white-space:nowrap;padding:6px 10px;border-radius:10px;background:rgba(10,16,30,.88);border:1px solid rgba(251,191,36,.55);color:#fde68a;font:700 12.5px Inter;box-shadow:0 0 22px rgba(251,191,36,.28);transform:translate(-50%,-50%);display:inline-block;animation:fadein .6s both;text-align:center}
+.money small{display:block;color:#cbd5e1;font-weight:500;font-size:10px}
+.money.bad{border-color:rgba(255,77,109,.6);color:#fecdd3;box-shadow:0 0 22px rgba(255,77,109,.3)}
+.money.ok{border-color:rgba(52,211,153,.5);color:#bbf7d0;box-shadow:0 0 22px rgba(52,211,153,.2)}
+.leaflet-tooltip.tt{background:rgba(8,14,27,.94);color:var(--text);border:1px solid var(--line);border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.4);font:500 12px Inter,sans-serif;padding:7px 10px}
+.leaflet-tooltip.tt span{color:var(--muted);font-size:11px}
+.leaflet-tooltip-top.tt:before{border-top-color:rgba(8,14,27,.94)}
+.leaflet-tooltip.terr-label{background:transparent;border:0;box-shadow:none;color:#fff;font:700 12.5px Inter,sans-serif;text-align:center;text-shadow:0 0 10px #000,0 0 4px #000;opacity:.85!important;line-height:1.35}
+.leaflet-tooltip.terr-label small{display:block;font:600 10px Inter,sans-serif;letter-spacing:.08em;color:#cbd5e1;text-transform:uppercase}
+.terr-label:before{display:none}
+#map.dim .terr-label{opacity:.2!important}
+#map.hide-terr .terr-label{display:none}
+.leaflet-container{font-family:Inter,sans-serif}
+.leaflet-bottom.leaflet-right{bottom:54px;right:400px}
+.leaflet-control-attribution{background:rgba(6,10,19,.6)!important;color:#64748b!important;font-size:9.5px}
+.leaflet-control-attribution a{color:#94a3b8!important}
+@media (max-width:1300px){.phone{display:none}.client small{display:none}}
+@media (max-width:1000px){.left{display:none}.right{width:auto;left:14px;top:auto;height:44%}.client,.sep,.badge{display:none}.leaflet-bottom.leaflet-right{right:14px}}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="fx"></div><div class="scan"></div>
+
+<header class="topbar glass">
+ <div class="logo"><div class="mark">p</div><div><b>Penny</b><span>Network Intelligence</span></div></div>
+ <div class="sep"></div>
+ <div class="client">Prepared for <b>Baik Food Systems</b> <small>· licensor view across all licensees</small></div>
+ <div class="grow"></div>
+ <div class="live"><i></i>LIVE</div>
+ <div class="clock mono" id="clock"></div>
+ <div class="badge g">Hosted in KSA · SSO</div>
+ <div class="badge">Demo data</div>
+</header>
+
+<aside class="left glass">
+ <h4>Network at a glance</h4>
+ <div class="kpis" id="kpis"></div>
+ <h4>Connected systems</h4>
+ <div class="sys" id="sys"></div>
+ <h4>Licensees</h4>
+ <div class="chips" id="lics"></div>
+ <h4>Restaurant class</h4>
+ <div class="chips" id="classes"></div>
+ <h4>Map layers</h4>
+ <div class="layers" id="layers"></div>
+ <h4>Live scenarios</h4>
+ <div id="scen"></div>
+ <div class="reset" onclick="resetAll()"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Reset view</div>
+</aside>
+
+<aside class="right glass" id="panel"></aside>
+<div class="phone" id="phone"><div class="ph-cap">What the restaurant manager sees</div><div class="notch"></div><div class="scr" id="scr"></div></div>
+
+<footer class="ticker glass"><div class="tk-label"><span class="live"><i></i></span>Live feed</div><div class="tk-track"><div id="tk"></div></div></footer>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ---------- helpers ----------
+let seed=20260930;
+function rnd(){seed=(seed*16807)%2147483647;return (seed-1)/2147483646}
+const R=(a,b)=>a+rnd()*(b-a),RI=(a,b)=>Math.floor(R(a,b+1)),pick=a=>a[Math.floor(rnd()*a.length)];
+function wpick(w){let t=w.reduce((a,b)=>a+b,0),r=rnd()*t;for(let i=0;i<w.length;i++){if((r-=w[i])<0)return i}return w.length-1}
+function km(a,b){const k=Math.PI/180,dl=(b[0]-a[0])*k,dg=(b[1]-a[1])*k;const h=Math.sin(dl/2)**2+Math.cos(a[0]*k)*Math.cos(b[0]*k)*Math.sin(dg/2)**2;return 12742*Math.asin(Math.sqrt(h))}
+function arc(a,b,k=.18,n=48){const[y1,x1]=a,[y2,x2]=b,mx=(x1+x2)/2,my=(y1+y2)/2,dx=x2-x1,dy=y2-y1,cx=mx-dy*k,cy=my+dx*k,p=[];for(let i=0;i<=n;i++){const t=i/n,u=1-t;p.push([u*u*y1+2*u*t*cy+t*t*y2,u*u*x1+2*u*t*cx+t*t*x2])}return p}
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+const $=s=>document.querySelector(s);
+const A=t=>`<bdi class="ar">${t}</bdi>`;
+const dur=d=>d<365?d+' days':(d/365).toFixed(1)+' yrs';
+const tag=d=>`<span class="tag ${d<30?'bad':d<60?'warn':'ok'}">${dur(d)}</span>`;
+const pctTag=v=>`<span class="tag ${v>5?'bad':v>2?'warn':'ok'}">${v>0?'+':''}${v.toFixed(1)}%</span>`;
+
+// ---------- demo data (all fictional) ----------
+const LIC=[
+ {id:'wf',en:'Al Wafra Food Co.',color:'#f5a524',erp:'Dynamics 365',erpOn:true,since:2014},
+ {id:'sh',en:'Al Sharq Restaurants',color:'#38bdf8',erp:'Dynamics 365',erpOn:true,since:2017},
+ {id:'as',en:'Aseer Food Co.',color:'#a78bfa',erp:'Excel & WhatsApp',erpOn:false,since:2021},
+ {id:'sm',en:'Al Shamal Food Services',color:'#2dd4bf',erp:'Excel & WhatsApp',erpOn:false,since:2023}];
+const LK=Object.fromEntries(LIC.map(l=>[l.id,l]));
+const REG=[
+ {id:'c',en:'Central region',lic:'wf',poly:[[27.2,42.8],[27.2,47.9],[23.6,48.2],[23.4,45.8],[24.6,43.0]]},
+ {id:'w',en:'Western region',lic:'wf',poly:[[25.2,38.6],[25.0,40.3],[21.9,41.0],[20.9,40.8],[20.9,39.6],[21.6,38.9],[24.2,38.2]]},
+ {id:'e',en:'Eastern Province',lic:'sh',poly:[[27.1,49.3],[27.0,50.4],[25.9,50.5],[25.1,49.9],[25.1,49.2],[26.2,49.0]]},
+ {id:'s',en:'Southern region',lic:'as',poly:[[19.8,41.2],[19.6,43.8],[17.3,44.2],[16.9,42.8],[17.6,41.9],[18.6,41.3]]},
+ {id:'n',en:'Northern region',lic:'sm',poly:[[29.8,35.0],[29.6,38.6],[27.3,38.8],[27.0,35.7]]}];
+const RK=Object.fromEntries(REG.map(r=>[r.id,r]));
+const CLASSES=[{id:'mall',en:'Mall'},{id:'dine',en:'Dining'},{id:'lim',en:'Limited'}];
+const CITIES=[
+ {en:'Riyadh',c:[24.72,46.67],s:[.15,.19],b:[0,0],k:44,r:'c',d:[['Olaya'],['Al Malqa'],['Sulaimaniyah'],['Al Nakheel'],['Hittin'],['Al Yasmin'],['Qurtubah'],['Al Rabwah'],['Al Wurud'],['An Narjis']]},
+ {en:'Jeddah',c:[21.56,39.19],s:[.17,.07],b:[0,.05],k:30,r:'w',d:[['Al Hamra'],['Al Rawdah'],['Obhur'],['Al Safa'],['Al Zahra'],['Al Salamah'],['Al Andalus'],['Al Naeem']]},
+ {en:'Makkah',c:[21.42,39.83],s:[.06,.07],b:[0,0],k:12,r:'w',d:[['Al Aziziyah'],['Al Awali'],['Ash Shawqiyah'],['Al Zahir']]},
+ {en:'Madinah',c:[24.48,39.60],s:[.06,.07],b:[0,0],k:10,r:'w',d:[['Quba'],['Al Aziziyah'],['Al Khalidiyah'],['Sultanah']]},
+ {en:'Taif',c:[21.28,40.42],s:[.05,.05],b:[0,0],k:6,r:'w',d:[['Shihar'],['Al Hawiyah'],['Al Faisaliyah']]},
+ {en:'Dammam',c:[26.41,50.03],s:[.06,.06],b:[0,-.03],k:14,r:'e',d:[['Al Faisaliyah'],['Al Shati'],['An Nakheel'],['Al Badiyah']]},
+ {en:'Khobar',c:[26.28,50.17],s:[.05,.03],b:[0,-.02],k:10,r:'e',d:[['Al Aqrabiyah'],['Al Yarmouk'],['Ar Rakah'],['Al Olaya']]},
+ {en:'Al Hofuf',c:[25.37,49.58],s:[.05,.05],b:[0,0],k:6,r:'e',d:[['Al Mubarraz'],['Al Kut'],['Al Naathel']]},
+ {en:'Buraidah',c:[26.34,43.97],s:[.05,.06],b:[0,0],k:6,r:'c',d:[['Al Rayyan'],['Al Iskan'],['As Safra']]},
+ {en:'Abha',c:[18.23,42.54],s:[.05,.1],b:[0,.05],k:5,r:'s',d:[['Al Mansak'],['Al Khalidiyah'],['Ash Shamasan']]},
+ {en:'Tabuk',c:[28.39,36.57],s:[.05,.05],b:[0,0],k:5,r:'n',d:[['Al Muruj'],['Al Faisaliyah'],['Al Rawdah']]}];
+const ITEMS=[
+ {k:'chk',en:'Fresh chicken',unit:'kg',cap:400,sup:'qp'},
+ {k:'oil',en:'Frying oil 18 L',unit:'tins',cap:40,sup:'no'},
+ {k:'brd',en:'Bread',unit:'packs',cap:120,sup:'sb'},
+ {k:'box',en:'Packaging boxes',unit:'cartons',cap:60,sup:'sp'},
+ {k:'spc',en:'Spice mix',unit:'bags',cap:30,sup:'bs'},
+ {k:'uni',en:'Staff uniforms',unit:'sets',cap:100,sup:'au'}];
+const IK=Object.fromEntries(ITEMS.map(i=>[i.k,i]));
+const WH=[
+ {key:'jed',en:'Jeddah Warehouse',c:[21.40,39.27],cap:'12,900 pallets',util:.87,recon:6},
+ {key:'ruh',en:'Riyadh Warehouse',c:[24.585,46.86],cap:'18,400 pallets',util:.78,recon:14},
+ {key:'dmm',en:'Dammam Warehouse',c:[26.36,50.00],cap:'8,200 pallets',util:.59,recon:0}];
+const WK=Object.fromEntries(WH.map(w=>[w.key,w]));
+const SUP=[
+ {k:'qp',en:'Qassim Poultry',cat:'Poultry',c:[26.22,43.80],to:['ruh','jed','dmm'],direct:true,ot:97},
+ {k:'no',en:'Al Nakheel Oils',cat:'Frying oil',c:[24.50,46.98],to:['ruh','jed'],ot:94},
+ {k:'nd',en:'Najd Dairy',cat:'Dairy & sauces',c:[24.16,47.32],to:['ruh','dmm'],ot:96},
+ {k:'tf',en:'Tabuk Farms',cat:'Fresh produce',c:[28.30,36.70],to:['jed','ruh'],ot:91},
+ {k:'hp',en:'Hail Potatoes',cat:'Potatoes',c:[27.50,41.70],to:['ruh','jed'],ot:93},
+ {k:'jf',en:'Jazan Fresh',cat:'Fresh produce',c:[16.92,42.60],to:['jed'],ot:88,halal:12},
+ {k:'sp',en:'Al Sharqiyah Packaging',cat:'Packaging',c:[26.30,49.95],to:['dmm','ruh','jed'],ot:98},
+ {k:'sb',en:'Al Sunbula Bakery',cat:'Bread',c:[21.50,39.25],direct:true,ot:95},
+ {k:'bs',en:'Al Balad Spices',cat:'Spices',c:[21.47,39.21],to:['jed','ruh'],ot:90},
+ {k:'yh',en:'Yanbu Hygiene',cat:'Cleaning',c:[24.12,38.14],to:['jed','ruh'],ot:92},
+ {k:'au',en:'Al Anaqa Uniforms',cat:'Uniforms',c:[24.66,46.72],to:['ruh','jed','dmm'],ot:89}];
+const SK=Object.fromEntries(SUP.map(v=>[v.k,v]));
+SUP.forEach(v=>{v.spend=RI(4,62)*100000;v.pos=RI(2,19);v.halal=v.halal||RI(90,500);v.sfda=RI(120,700)});
+const CARRIER={own:{en:'Own fleet'},tpl:{en:'Al Masar Logistics (3PL)'}};
+const PRICES={
+ oil:{sup:'no',rec:142,unit:'per 18 L tin',p:{wf:142,sh:145,as:155,sm:142}},
+ chk:{sup:'qp',rec:13.4,unit:'per kg',p:{wf:13.4,sh:13.9,as:13.4,sm:14.6}},
+ uni:{sup:'au',rec:85,unit:'per set',p:{wf:85,sh:85,as:92,sm:85}},
+ box:{sup:'sp',rec:210,unit:'per carton of 500',p:{wf:214,sh:210,as:210,sm:226}}};
+const RATE=6;
+
+const stores=[],num={};
+CITIES.forEach(ct=>{for(let i=0;i<ct.k;i++){
+ const reg=RK[ct.r],lic=LK[reg.lic],[den]=pick(ct.d),key=ct.en+den;num[key]=(num[key]||0)+1;
+ const c=[ct.c[0]+(rnd()*2-1)*ct.s[0]+ct.b[0],ct.c[1]+(rnd()*2-1)*ct.s[1]+ct.b[1]];
+ const s={id:stores.length,lic,reg,city:ct,c,cls:CLASSES[wpick([3,5,2])],
+  en:`${den} Branch ${num[key]}`,
+  sales:RI(9,48)*1000,temp:R(1.9,4.4),orders:RI(8,31),
+  stock:ITEMS.map(it=>{const pct=rnd()<.025?RI(8,23):RI(32,96);return{it,pct,qty:Math.round(it.cap*pct/100)}})};
+ s.wh=WH.reduce((a,x)=>km(x.c,c)<km(a.c,c)?x:a);
+ stores.push(s)}});
+// a known uniforms shortage for the demo story
+const demoLow=stores.find(s=>s.city.en==='Riyadh'&&s.en.startsWith('Olaya '))||stores[0];
+demoLow.stock[5].pct=20;demoLow.stock[5].qty=20;
+stores.forEach(s=>{s.low=s.stock.filter(x=>x.pct<25);s.health=Math.round(s.stock.filter(x=>x.pct>=25).length/s.stock.length*100)});
+REG.forEach(r=>r.n=stores.filter(s=>s.reg===r).length);
+LIC.forEach(l=>{l.stores=stores.filter(s=>s.lic===l);l.n=l.stores.length;l.regions=REG.filter(r=>r.lic===l.id)});
+const WIN=['Daily 6 to 9 AM','Daily 5 to 7 AM','Sun, Tue, Thu','Twice weekly','Weekly, Monday'],PAY=['Net 15','Net 30','Net 45','Net 60'];
+const CONTRACTS=[];SUP.forEach(v=>LIC.forEach(l=>{if(l.id==='sm'&&rnd()<.4)return;CONTRACTS.push({v,l,d:rnd()<.1?RI(6,58):RI(70,700),win:v.direct?pick(WIN.slice(0,2)):pick(WIN.slice(2)),pay:pick(PAY),basis:rnd()<.8?'Fixed price':'Price list, reviewed quarterly'})}));
+const PREOPEN=[
+ {city:'Riyadh',en:'An Narjis Branch 4',c:[24.86,46.66],lic:'wf',exp:'1 Nov',now:'1 Dec',slip:30,why:'HVAC installation',st:'Fit-out 85%'},
+ {city:'Jeddah',en:'Obhur Branch 3',c:[21.74,39.20],lic:'wf',exp:'15 Oct',now:'15 Oct',slip:0,why:'On schedule',st:'Suppliers notified'},
+ {city:'Makkah',en:'Al Awali Branch 3',c:[21.36,39.88],lic:'wf',exp:'20 Nov',now:'2 Dec',slip:12,why:'Cold room not ready',st:'Fit-out 70%'},
+ {city:'Al Hofuf',en:'Al Kut Branch 2',c:[25.40,49.60],lic:'sh',exp:'1 Nov',now:'1 Dec',slip:30,why:'Drainage pipes rework',st:'Fit-out 60%'},
+ {city:'Madinah',en:'Sultanah Branch 3',c:[24.50,39.57],lic:'wf',exp:'10 Nov',now:'10 Nov',slip:0,why:'On schedule',st:'Equipment delivered'},
+ {city:'Abha',en:'Ash Shamasan Branch 2',c:[18.25,42.52],lic:'as',exp:'5 Jan',now:'5 Jan',slip:0,why:'Civil defense inspection booked',st:'Fit-out 40%'}];
+const pickStore=(f,fb)=>stores.find(f)||fb;
+const ABN=[
+ {s:pickStore(s=>s.city.en==='Riyadh'&&s!==demoLow&&s.cls.id==='mall',stores[5]),type:'dup',it:'uni',t:'Duplicate uniforms order',d:'Ordered 100 sets. 20 on hand and 100 already in transit from the same supplier.',act:'Order held for review'},
+ {s:pickStore(s=>s.city.en==='Jeddah'&&s.cls.id==='dine',stores[50]),type:'resale',it:'oil',t:'Oil bought 2.7× what sales need',d:'42 tins this month. POS sales support about 15. Possible resale outside the restaurant.',act:'Flagged to BFS supply chain'},
+ {s:pickStore(s=>s.city.en==='Dammam',stores[110]),type:'spike',it:'chk',t:'Chicken orders 3 days running above plan',d:'+64% vs the 8-week average while POS sales are flat.',act:'Store manager asked to confirm'}];
+const priceFlags=[];Object.entries(PRICES).forEach(([k,p])=>LIC.forEach(l=>{const v=(p.p[l.id]-p.rec)/p.rec*100;if(v>2)priceFlags.push({k,l,v})}));
+
+// ---------- map ----------
+const mapEl=$('#map');
+const map=L.map('map',{zoomControl:false,minZoom:4,zoomSnap:.25}).setView([24.2,44.6],5);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{maxZoom:16,attribution:'Tiles &copy; Esri'}).addTo(map);
+map.createPane('labels').style.zIndex=390;map.getPane('labels').style.pointerEvents='none';
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',{maxZoom:16,pane:'labels',opacity:.75}).addTo(map);
+map.createPane('heat').style.zIndex=350;map.getPane('heat').style.pointerEvents='none';
+const LY={terr:L.layerGroup().addTo(map),flows:L.layerGroup().addTo(map),direct:L.layerGroup().addTo(map),routes:L.layerGroup().addTo(map),heat:L.layerGroup(),stores:L.layerGroup().addTo(map),alerts:L.layerGroup().addTo(map),whs:L.layerGroup().addTo(map),sups:L.layerGroup().addTo(map),scen:L.layerGroup().addTo(map),sel:L.layerGroup().addTo(map)};
+const pad=()=>innerWidth<1000?{padding:[30,30]}:{paddingTopLeft:[345,90],paddingBottomRight:[410,66]};
+function line(pts,color,layer,{w=1.5,op=.85,flow=true,halo=true}={}){
+ if(halo)L.polyline(pts,{color,weight:w+7,opacity:.07,interactive:false}).addTo(layer);
+ return L.polyline(pts,{color,weight:w,opacity:op,className:flow?'flow':'',interactive:false}).addTo(layer)}
+function pulse(c,color,size=36,layer=LY.scen){return L.marker(c,{icon:L.divIcon({className:'',html:`<div class="pulse" style="--c:${color};width:${size}px;height:${size}px"></div>`,iconSize:[size,size],iconAnchor:[size/2,size/2]}),interactive:false,keyboard:false}).addTo(layer)}
+function label(c,html,cls='',layer=LY.scen){return L.marker(c,{icon:L.divIcon({className:'',html:`<div class="money ${cls}">${html}</div>`,iconSize:null}),interactive:false,keyboard:false}).addTo(layer)}
+const movers=[];
+function addMover(pts,{color='#fff',speed=.08,loop=true,t=0,layer=LY.routes,size=8,cls='',interactive=false}={}){
+ const m=L.marker(pts[0],{icon:L.divIcon({className:'',html:`<div class="truck ${cls}" style="--c:${color}"></div>`,iconSize:[size,size],iconAnchor:[size/2,size/2]}),interactive,keyboard:false}).addTo(layer);
+ const o={m,pts,t,speed,loop,layer,done:false};movers.push(o);return o}
+function posAt(p,t){const x=t*(p.length-1),i=Math.min(p.length-2,Math.floor(x)),f=x-i,a=p[i],b=p[i+1];return[a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f]}
+let last=performance.now();
+(function tick(now){const dt=Math.min(.05,(now-last)/1000);last=now;
+ for(const o of movers){if(o.done)continue;o.t+=o.speed*dt;if(o.t>=1){if(o.loop)o.t-=1;else{o.t=1;o.done=true}}o.m.setLatLng(posAt(o.pts,o.t))}
+ requestAnimationFrame(tick)})(last);
+
+// licensee regions
+REG.forEach(r=>{const l=LK[r.lic];const pg=L.polygon(r.poly,{color:l.color,weight:1.6,opacity:.8,dashArray:'6 7',fillColor:l.color,fillOpacity:.05,className:'terr'}).addTo(LY.terr);r.pg=pg;const cc=pg.getBounds().getCenter();r.center=[cc.lat,cc.lng];
+ pg.bindTooltip(`${l.en}<small>${r.en} · ${r.n} restaurants</small>`,{permanent:true,direction:'center',className:'terr-label'});
+ pg.on('click',()=>selectLic(l))});
+// supplier to warehouse flows
+SUP.filter(v=>v.to).forEach((v,i)=>v.to.forEach((k,j)=>{const pts=arc(v.c,WK[k].c,.22,70);line(pts,'#818cf8',LY.flows,{w:1,op:.4});if((i+j)%2===0)addMover(pts,{color:'#c7d2fe',speed:R(.03,.06),t:rnd(),layer:LY.flows,size:6})}));
+// direct supply (supplier straight to restaurants)
+SUP.filter(v=>v.direct).forEach(v=>stores.slice().sort((a,b)=>km(a.c,v.c)-km(b.c,v.c)).slice(0,6).forEach(s=>{const pts=arc(v.c,s.c,.2,50);line(pts,'#fbbf24',LY.direct,{w:1,op:.45,halo:false});addMover(pts,{color:'#fde68a',speed:R(.05,.1),t:rnd(),layer:LY.direct,size:6})}));
+// warehouse to restaurant deliveries
+const inTransit=[],tIdx=new Set();while(tIdx.size<16)tIdx.add(RI(0,stores.length-1));
+[...tIdx].forEach((i,k)=>{const s=stores[i],pts=arc(s.wh.c,s.c,.15,60),cold=k===3||k===9,car=k%3===0?CARRIER.tpl:CARRIER.own;
+ line(pts,cold?'#ff4d6d':'#5eead4',LY.routes,{w:1.2,op:.5});
+ const id=s.wh.key.toUpperCase()+'-'+String(k+3).padStart(2,'0'),temp=cold?(k===3?5.8:6.3):R(1.8,4.2);
+ const mv=addMover(pts,{color:cold?'#ff4d6d':'#e0fffb',speed:R(.05,.11),t:rnd(),size:9,cls:cold?'cold':'',interactive:true});
+ mv.m.bindTooltip(`<b>Truck ${id}</b> · ${car.en}<br><span>${temp.toFixed(1)}°C · to ${s.en}</span>`,{className:'tt',direction:'top'});
+ inTransit.push({id,s,temp,cold,mv,car})});
+// sales heat
+stores.forEach(s=>{const z=Math.round(36+s.sales/1000*1.5);L.marker(s.c,{pane:'heat',interactive:false,keyboard:false,icon:L.divIcon({className:'',html:`<div class="heat" style="width:${z}px;height:${z}px"></div>`,iconSize:[z,z],iconAnchor:[z/2,z/2]})}).addTo(LY.heat)});
+// restaurants
+stores.forEach(s=>{const col=s.lic.color,m=L.circleMarker(s.c,{radius:s.cls.id==='mall'?5.5:s.cls.id==='dine'?4.5:3.5,color:col,weight:6,opacity:.26,fillColor:col,fillOpacity:.95,className:'store pop'});
+ m.bindTooltip(`${s.en} <span>· ${s.city.en}</span><br><span>${s.lic.en} · ${s.cls.en} · SAR ${fmt(s.sales)} today</span>`,{className:'tt',direction:'top',offset:[0,-4]});
+ m.on('click',()=>selectStore(s));s.m=m;m.addTo(LY.stores);
+ const el=m.getElement();if(el)el.style.animationDelay=(.5+rnd()*1.8).toFixed(2)+'s'});
+ABN.forEach(a=>pulse(a.s.c,'#ff4d6d',30,LY.alerts));
+// warehouses
+WH.forEach(w=>{const m=L.marker(w.c,{icon:L.divIcon({className:'',html:`<div class="dc"><div class="dc-ring"></div><div class="dc-core"></div><div class="dc-t">WH</div><div class="dc-label">${w.en.replace(' Warehouse','')}<small>WAREHOUSE</small></div></div>`,iconSize:[34,34],iconAnchor:[17,17]})}).addTo(LY.whs);
+ m.on('click',()=>selectWH(w));w.served=stores.filter(s=>s.wh===w).length});
+// suppliers
+SUP.forEach(v=>{const m=L.marker(v.c,{icon:L.divIcon({className:'',html:`<div class="sup" style="--c:${v.direct?'#fbbf24':'#a5b4fc'}"></div>`,iconSize:[12,12],iconAnchor:[6,6]})}).addTo(LY.sups);
+ m.bindTooltip(`${v.en}<br><span>${v.cat} · ${v.direct?'direct to restaurants':'via warehouses'}</span>`,{className:'tt',direction:'top'});m.on('click',()=>selectSupplier(v))});
+
+const allBounds=L.latLngBounds(stores.map(s=>s.c).concat(SUP.map(v=>v.c)));
+map.whenReady(()=>setTimeout(()=>map.flyToBounds(allBounds,{...pad(),duration:2.4}),350));
+
+// ---------- left panel ----------
+const shipCount=stores.filter(s=>s.id%3!==0).length,lowStores=stores.filter(s=>s.low.length);
+const redPrice=priceFlags.filter(f=>f.v>5),slips=PREOPEN.filter(p=>p.slip>0);
+const alerts=[
+ ...inTransit.filter(t=>t.cold).map(t=>({lvl:'bad',t:`Truck ${t.id} at ${t.temp.toFixed(1)}°C`,s:`Cold chain · ${t.car.en} · to ${t.s.en}`,go:`flyTruck('${t.id}')`})),
+ ...ABN.map(a=>({lvl:'bad',t:a.t,s:`${a.s.en} · ${a.s.lic.en}`,go:'abnormal()'})),
+ {lvl:'warn',t:`${redPrice.length} prices more than 5% above BFS recommendation`,s:'Same supplier, different price by licensee',go:"priceGov('oil')"},
+ {lvl:'warn',t:`${lowStores.length} restaurants below reorder point`,s:'Suggested orders ready for approval',go:'reorder()'},
+ ...WH.filter(w=>w.recon).map(w=>({lvl:'warn',t:`${w.recon} stock lines don't match Dynamics`,s:`${w.en} · month-end reconciliation`,go:`selectWH(WK.${w.key})`})),
+ {lvl:'warn',t:`${slips.length} pre-opening sites running late`,s:'Monitored, not penalized',go:'preopen()'},
+ ...SUP.filter(v=>v.halal<30).map(v=>({lvl:'warn',t:`Halal certificate expires in ${v.halal} days`,s:v.en,go:`selectSupplier(SK.${v.k})`}))];
+const spark=c=>{let p='',y=12;for(let i=0;i<12;i++){y=Math.max(2,Math.min(18,y+R(-5,5)));p+=`${i*5},${y.toFixed(1)} `}return `<svg viewBox="0 0 56 20"><polyline points="${p}" fill="none" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/></svg>`};
+const KPI=[{l:'Restaurants',v:stores.length,s:`${PREOPEN.length} more in pre-opening`},{l:'Licensees',v:LIC.length,s:`largest runs ${Math.round(LIC[0].n/stores.length*100)}%`},{l:'Warehouses',v:WH.length,s:'reconciled with Dynamics'},{l:'Approved suppliers',v:SUP.length,s:'nothing else can be ordered'},{l:'Shipments today',v:shipCount,s:'own fleet + 3PL',c:'warn'},{l:'Needs attention',v:alerts.length,s:'stock, price, cold chain',c:'bad'}];
+$('#kpis').innerHTML=KPI.map(k=>`<div class="kpi ${k.c||''}">${spark(k.c==='bad'?'#fb7185':k.c==='warn'?'#fcd34d':'#5eead4')}<div class="l">${k.l}</div><div class="v" data-v="${k.v}">0</div><div class="s">${k.s}</div></div>`).join('');
+document.querySelectorAll('.kpi .v').forEach(el=>{const v=+el.dataset.v,t0=performance.now();(function up(t){const p=Math.min(1,(t-t0)/1600),e=1-Math.pow(1-p,3);el.textContent=fmt(v*e);if(p<1)requestAnimationFrame(up)})(t0)});
+$('#sys').innerHTML=[['#34d399','Dynamics 365','master data · synced 11:00'],['#34d399','POS','day closed 02:45 · via Azure'],['#34d399','3PL','live shipment feed'],['#fbbf24','Excel & WhatsApp','being digitized']].map(([c,b,s])=>`<div class="sy" style="--c:${c}"><i></i><b>${b}</b><span>${s}</span></div>`).join('');
+const licOn=new Set(LIC.map(l=>l.id)),clsOn=new Set(CLASSES.map(c=>c.id));
+function applyFilters(){stores.forEach(s=>{const on=licOn.has(s.lic.id)&&clsOn.has(s.cls.id);on?LY.stores.addLayer(s.m):LY.stores.removeLayer(s.m)})}
+$('#lics').innerHTML=LIC.map(l=>`<div class="chip" style="--c:${l.color}" data-l="${l.id}"><i></i>${l.en}<small>${l.n}</small></div>`).join('');
+document.querySelectorAll('#lics .chip').forEach(ch=>ch.onclick=()=>{const id=ch.dataset.l,on=!licOn.has(id);on?licOn.add(id):licOn.delete(id);ch.classList.toggle('off',!on);applyFilters()});
+$('#classes').innerHTML=CLASSES.map(c=>`<div class="chip" style="--c:#cbd5e1" data-c="${c.id}">${c.en}<small>${stores.filter(s=>s.cls===c).length}</small></div>`).join('');
+document.querySelectorAll('#classes .chip').forEach(ch=>ch.onclick=()=>{const id=ch.dataset.c,on=!clsOn.has(id);on?clsOn.add(id):clsOn.delete(id);ch.classList.toggle('off',!on);applyFilters()});
+const LAYERS=[['stores','Restaurants',1],['whs','Warehouses',1],['sups','Suppliers',1],['terr','Licensee regions',1],['routes','Shipments',1],['direct','Direct supply',1],['flows','To warehouses',1],['alerts','Alert rings',1],['heat','Sales heat',0]];
+$('#layers').innerHTML=LAYERS.map(([k,l,on])=>`<div class="lay ${on?'on':''}" data-k="${k}"><div class="sw"></div>${l}</div>`).join('');
+document.querySelectorAll('.lay').forEach(el=>el.onclick=()=>{const g=LY[el.dataset.k],on=!map.hasLayer(g);on?g.addTo(map):map.removeLayer(g);el.classList.toggle('on',on)});
+const IC={ship:'<path d="M1 7h13v10H1z"/><path d="M14 11h4l3 3v3h-7z"/><circle cx="5.5" cy="18" r="1.8"/><circle cx="17.5" cy="18" r="1.8"/>',reorder:'<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/>',abn:'<path d="M12 3 2 21h20L12 3z"/><path d="M12 10v5M12 18v.01"/>',price:'<path d="M20 12 12 20l-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',roy:'<path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/>',ctr:'<path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M9 13h6M9 17h4"/>',pre:'<path d="M3 21h18M5 21V8l7-5 7 5v13"/><path d="M10 21v-6h4v6"/>'};
+const SCEN=[['ship','Shipments today','Every truck from each warehouse',()=>shipments('jed')],['reorder','Low stock, one-tap reorder','Reorder point 25%, approved suppliers only',()=>reorder()],['abn','Abnormal orders','Duplicates, and orders POS sales can\'t explain',()=>abnormal()],['price','Price governance','Same item, same supplier, different price',()=>priceGov('oil')],['roy','Royalty invoices','POS → Azure → Dynamics, daily at 11:00',()=>royalties()],['ctr','Contract renewals','Supply contracts expiring, routed to Legal',()=>contracts()],['pre','Pre-opening sites','Opening dates, slips and reasons',()=>preopen()]];
+$('#scen').innerHTML=SCEN.map(([id,t,d])=>`<div class="scen" data-s="${id}"><div class="ic"><svg viewBox="0 0 24 24">${IC[id]}</svg></div><div><b>${t}</b><span>${d}</span></div></div>`).join('');
+document.querySelectorAll('.scen').forEach((el,i)=>el.onclick=SCEN[i][3]);
+function setActive(id){document.querySelectorAll('.scen').forEach(el=>el.classList.toggle('active',el.dataset.s===id))}
+
+// ---------- ticker, clock, toast ----------
+const EV=[`<b>PO-88123</b> created in Penny by ${demoLow.en} · synced to Dynamics 365`,`<b>POS day close</b> 02:45 · ${stores.length} restaurants · pushed to Dynamics at 11:00`,`<b class="r">Cold chain</b> Truck ${inTransit.find(t=>t.cold).id} at 5.8°C · receipt on hold`,`<b>Royalty invoice Aug 2026</b> issued to ${LIC[0].en} automatically`,`<b class="r">Held</b> ${ABN[0].s.en} ordered 100 uniforms · 100 already in transit`,`<b class="a">Price flag</b> Frying oil · ${LK.as.en} paying 9.2% above recommended`,`<b class="g">One-tap reorder</b> ${stores[33].en} · packaging boxes · approved`,`<b>Shipment JED-114</b> delivered · geofence verified · 3.1°C`,`<b>Renewal</b> ${SK.nd.en} × ${LK.sh.en} routed to Legal`,`<b class="a">Pre-opening</b> ${PREOPEN[3].en} moved to 1 Dec · drainage pipes rework`,`<b>Supplier approved by BFS</b> ${SK.hp.en} for ${LK.sm.en}`,`<b>Excel import</b> 14 WhatsApp orders from ${LK.as.en} digitized this week`];
+$('#tk').innerHTML=(EV.map(e=>`<span>${e}</span>`).join('')).repeat(2);
+const clk=()=>$('#clock').textContent=new Date().toLocaleTimeString('en-GB',{timeZone:'Asia/Riyadh'})+' AST';clk();setInterval(clk,1000);
+let tT;function toast(m){const t=$('#toast');t.innerHTML=m;t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),3400)}
+
+// ---------- panels ----------
+const panel=$('#panel');
+function home(){
+ LY.sel.clearLayers();
+ const lic=LIC.map(l=>`<div class="prog li click" style="display:block" onclick="selectLic(LK.${l.id})"><div class="pl"><span class="swt" style="background:${l.color}"></span>${l.en}<b>${l.n}</b></div><div class="bar"><i style="width:${l.n/stores.length*100}%;background:${l.color};color:${l.color}"></i></div><div class="pn">${l.regions.map(r=>r.en).join(' + ')} · ${l.erpOn?'<span style="color:var(--ok)">Dynamics 365 connected</span>':'<span style="color:var(--warn)">Excel & WhatsApp today</span>'}</div></div>`).join('');
+ const al=alerts.map(a=>`<div class="li click" onclick="${a.go}"><div class="l2"><span class="bul" style="--c:${a.lvl==='bad'?'var(--danger)':'var(--warn)'}"></span><div><b>${a.t}</b><span>${a.s}</span></div></div></div>`).join('');
+ const whs=WH.map(w=>`<div class="prog li click" style="display:block" onclick="selectWH(WK.${w.key})"><div class="pl"><span class="swt" style="background:#5eead4"></span>${w.en}<b>${Math.round(w.util*100)}%</b></div><div class="bar"><i style="width:${w.util*100}%;background:linear-gradient(90deg,#5eead4,${w.util>.85?'#ff4d6d':'#818cf8'});color:#5eead4"></i></div><div class="pn">${w.served} restaurants · ${w.recon?`<span style="color:var(--warn)">${w.recon} lines to reconcile with Dynamics</span>`:'<span style="color:var(--ok)">matches Dynamics</span>'}</div></div>`).join('');
+ panel.innerHTML=`<div class="eyebrow">Licensor view · BFS</div><h2>One map of every licensee, restaurant, warehouse and supplier</h2><div class="sub">${stores.length} restaurants · ${LIC.length} licensees · ${WH.length} warehouses · ${SUP.length} approved suppliers</div>
+ <h4>Licensees</h4>${lic}
+ <h4>Needs attention <span class="cnt">${alerts.length}</span></h4>${al}
+ <h4>Warehouses</h4>${whs}
+ <h4>How Penny fits</h4><div class="card"><div class="ct">Dynamics stays the backbone</div>Restaurants order in Penny. Items, vendors, prices and warehouses come from Dynamics 365, and every PO, receipt and invoice goes back to it. Nobody keys the same order twice or closes the month twice.</div>
+ <div class="steps"><div class="step">Phase 1 · Direct supply<span>Restaurants order from BFS-approved suppliers at contract prices</span></div><div class="step">Phase 2 · Three-way<span>Restaurant ↔ warehouse ↔ supplier with 3PL tracking and suggested reorders</span></div></div>`}
+
+function selRing(c){LY.sel.clearLayers();L.marker(c,{icon:L.divIcon({className:'',html:'<div class="selr"></div>',iconSize:[20,20],iconAnchor:[10,10]}),interactive:false}).addTo(LY.sel);pulse(c,'#ffffff',46,LY.sel)}
+function stockRows(s){return s.stock.map(x=>`<div class="stock"><div class="pl">${x.it.en}<b style="color:${x.pct<25?'var(--danger)':'var(--text)'}">${x.qty} ${x.it.unit}</b></div><div class="bar rp"><i style="width:${x.pct}%;background:${x.pct<25?'linear-gradient(90deg,#ff4d6d,#fb923c)':'linear-gradient(90deg,#5eead4,#818cf8)'};color:${x.pct<25?'#ff4d6d':'#5eead4'}"></i><em></em></div></div>`).join('')}
+function selectStore(s){
+ selRing(s.c);if(map.getZoom()<10)map.flyTo(s.c,12,{duration:1.2});
+ const ctr=CONTRACTS.filter(c=>c.l===s.lic&&(c.v.direct||['no','au','sp'].includes(c.v.k))).slice(0,4);
+ const car=s.id%3===0?CARRIER.tpl:CARRIER.own;
+ panel.innerHTML=`<div class="ph"><div class="dot" style="--c:${s.lic.color}"></div><div><div class="eyebrow">${s.lic.en}</div><h2>${s.en}</h2><div class="sub">${s.city.en} · ${s.cls.en} restaurant · supplied by ${s.wh.en}</div></div></div>
+ <div class="row3"><div class="ring" style="--p:${s.health};--c:${s.health<100?'var(--warn)':'var(--ok)'}"><div><b>${s.health}%</b><span>stock ok</span></div></div>
+ <div class="stat"><span>Sales today (POS)</span><b>SAR ${fmt(s.sales)}</b></div><div class="stat"><span>Orders this month</span><b>${s.orders}</b></div></div>
+ <h4>Stock on hand <span style="text-transform:none;letter-spacing:0">· white tick = reorder point</span></h4>${stockRows(s)}
+ <div class="card"><div class="ct">Last delivery</div>${car.en} · GRN-${40000+s.id*7} · <b style="color:var(--ok)">geofence verified</b> · ${s.temp.toFixed(1)}°C on receipt · synced to Dynamics</div>
+ <h4>Supply contracts that apply</h4>${ctr.map(c=>`<div class="li"><div><b>${c.v.en} <span>· ${c.v.cat}</span></b><span>${c.basis} · ${c.win} · ${c.pay}</span></div>${tag(c.d)}</div>`).join('')}
+ ${s.low.length?`<button class="btn" onclick="reorder(stores[${s.id}])">Reorder ${s.low.length} low item${s.low.length>1?'s':''} in one tap</button>`:''}`}
+
+function selectWH(w){
+ selRing(w.c);map.flyTo(w.c,Math.max(map.getZoom(),8),{duration:1});
+ const sup=SUP.filter(v=>v.to&&v.to.includes(w.key));
+ panel.innerHTML=`<div class="eyebrow">Warehouse</div><h2>${w.en}</h2><div class="sub">${w.cap} · serves ${w.served} restaurants</div>
+ <div class="row3"><div class="ring big" style="--p:${Math.round(w.util*100)};--c:${w.util>.85?'var(--danger)':'#5eead4'}"><div><b>${Math.round(w.util*100)}%</b><span>utilized</span></div></div>
+ <div style="flex:1;display:grid;gap:8px"><div class="stat"><span>Shipments today</span><b>${stores.filter(s=>s.wh===w&&s.id%3!==0).length}</b></div><div class="stat"><span>Stock cover</span><b>${RI(9,16)} days</b></div></div></div>
+ <div class="card ${w.recon?'':'ok'}"><div class="ct">Month-end vs Dynamics 365</div>${w.recon?`<b>${w.recon} stock lines</b> don't match Dynamics. Penny lists them now, so month-end closing isn't done twice.`:'All stock lines match Dynamics. Nothing to reconcile.'}</div>
+ <h4>Cold rooms</h4><div class="grid2" style="margin-top:0"><div class="stat"><span>Chiller</span><b>${R(1.8,3.4).toFixed(1)}°C</b></div><div class="stat"><span>Freezer</span><b>−${R(18,21).toFixed(1)}°C</b></div></div>
+ <h4>Inbound suppliers</h4>${sup.map(v=>`<div class="li click" onclick="selectSupplier(SK.${v.k})"><div><b>${v.en}</b><span>${v.cat} · ${Math.round(km(v.c,w.c))} km</span></div><span class="tag ${v.ot>=94?'ok':'warn'}">${v.ot}% on time</span></div>`).join('')}
+ <button class="btn" onclick="shipments('${w.key}')">Show today's shipments from here</button>`}
+
+function selectSupplier(v){
+ selRing(v.c);map.flyTo(v.c,Math.max(map.getZoom(),7),{duration:1});
+ const pk=Object.keys(PRICES).find(k=>PRICES[k].sup===v.k),pr=pk&&PRICES[pk];
+ panel.innerHTML=`<div class="eyebrow">Approved supplier · ${v.cat}</div><h2>${v.en}</h2><div class="sub">${v.direct?'delivers direct to restaurants':'delivers to '+v.to.map(k=>WK[k].en).join(', ')}</div>
+ <div class="grid2"><div class="stat"><span>On-time delivery</span><b>${v.ot}%</b></div><div class="stat"><span>Spend YTD, all licensees</span><b>SAR ${fmt(v.spend)}</b></div><div class="stat"><span>Open POs</span><b>${v.pos}</b></div><div class="stat"><span>Licensees served</span><b>${CONTRACTS.filter(c=>c.v===v).length}</b></div></div>
+ ${pr?`<h4>Price by licensee · ${IK[pk].en} (${pr.unit})</h4>${LIC.map(l=>{const vv=(pr.p[l.id]-pr.rec)/pr.rec*100;return `<div class="li"><div class="l2"><span class="bul" style="--c:${l.color}"></span><div><b>${l.en}</b><span>SAR ${pr.p[l.id]} · recommended ${pr.rec}</span></div></div>${pctTag(vv)}</div>`}).join('')}`:''}
+ <h4>Certificates</h4>${[['Halal certificate',v.halal],['SFDA registration',v.sfda]].map(([t,d])=>`<div class="li"><div><b>${t}</b><span>${d<30?'new POs blocked on expiry':'valid'}</span></div>${tag(d)}</div>`).join('')}
+ <div class="card"><div class="ct">Rule</div>Nothing reaches a restaurant unless BFS approved the supplier and the item. Licensees can renegotiate, and every line price stays visible to BFS.</div>`}
+
+function selectLic(l){
+ LY.sel.clearLayers();map.flyToBounds(L.latLngBounds(l.regions.flatMap(r=>r.poly)),{...pad(),duration:1.1});
+ const net=l.stores.reduce((a,s)=>a+s.sales*30,0),cls=CLASSES.map(c=>`<div class="stat"><span>${c.en}</span><b>${l.stores.filter(s=>s.cls===c).length}</b></div>`).join('');
+ const pf=priceFlags.filter(f=>f.l===l),ce=CONTRACTS.filter(c=>c.l===l&&c.d<60),po=PREOPEN.filter(p=>p.lic===l.id);
+ panel.innerHTML=`<div class="ph"><div class="dot" style="--c:${l.color}"></div><div><div class="eyebrow">Licensee · since ${l.since}</div><h2>${l.en}</h2><div class="sub">${l.regions.map(r=>r.en).join(' + ')}</div></div></div>
+ <div class="row3"><div class="ring big" style="--p:${Math.round(l.n/stores.length*100)};--c:${l.color}"><div><b>${l.n}</b><span>restaurants</span></div></div>
+ <div style="flex:1;display:grid;gap:8px"><div class="stat"><span>Net sales, month (POS)</span><b>SAR ${fmt(net)}</b></div><div class="stat"><span>Royalty at ${RATE}%</span><b>SAR ${fmt(net*RATE/100)}</b></div></div></div>
+ <div class="grid2" style="grid-template-columns:1fr 1fr 1fr">${cls}</div>
+ <h4>Systems</h4><div class="li"><div><b>${l.erp}</b><span>${l.erpOn?'Orders, receipts and invoices sync both ways':'Orders arrive by WhatsApp and Excel today'}</span></div><span class="tag ${l.erpOn?'ok':'warn'}">${l.erpOn?'connected':'phase 2'}</span></div>
+ <h4>Governance</h4>
+ <div class="li click" onclick="priceGov('${pf[0]?.k||'oil'}')"><div><b>Price flags</b><span>lines above BFS recommended price</span></div><span class="tag ${pf.length?'warn':'ok'}">${pf.length}</span></div>
+ <div class="li click" onclick="contracts()"><div><b>Supply contracts expiring ≤ 60 days</b><span>routed to Legal</span></div><span class="tag ${ce.length?'warn':'ok'}">${ce.length}</span></div>
+ <div class="li click" onclick="reorder()"><div><b>Restaurants below reorder point</b><span>suggested orders waiting</span></div><span class="tag ${l.stores.filter(s=>s.low.length).length?'warn':'ok'}">${l.stores.filter(s=>s.low.length).length}</span></div>
+ <div class="li click" onclick="preopen()"><div><b>Pre-opening sites</b><span>royalty starts at actual opening</span></div><span class="tag info">${po.length}</span></div>`}
+
+// ---------- scenarios ----------
+let timers=[];
+const later=(f,ms)=>timers.push(setTimeout(f,ms));
+function clearScenario(){timers.forEach(clearTimeout);timers=[];LY.scen.clearLayers();for(let k=movers.length-1;k>=0;k--)if(movers[k].layer===LY.scen)movers.splice(k,1);
+ mapEl.classList.remove('dim','hide-terr');stores.forEach(s=>s.m.getElement()?.classList.remove('hl'));LY.sel.clearLayers();$('#phone').classList.remove('show')}
+function hl(list){mapEl.classList.add('dim');list.forEach(s=>s.m.getElement()?.classList.add('hl'))}
+function resetAll(){clearScenario();setActive(null);home();map.flyToBounds(allBounds,{...pad(),duration:1.4})}
+
+function shipments(k){
+ clearScenario();setActive('ship');const w=WK[k];
+ const REASON=['Traffic on the ring road','Loading queue at the warehouse','Missed the receiving window','Vehicle swap, replacement sent'];
+ const st=stores.filter(s=>s.wh===w&&s.id%3!==0).map(s=>{const h=(s.id*37)%20;return{s,status:h<11?'done':h<18?'transit':'late',car:s.id%4===0?CARRIER.tpl:CARRIER.own,why:REASON[s.id%4]}});
+ hl(st.map(x=>x.s));pulse(w.c,'#5eead4',70);
+ st.forEach((x,i)=>later(()=>{const pts=arc(w.c,x.s.c,.18,40),col=x.status==='done'?'#34d399':x.status==='transit'?'#5eead4':'#fbbf24';
+  line(pts,col,LY.scen,{w:x.status==='late'?1.8:1.1,op:.75,flow:x.status!=='done',halo:x.status==='late'});
+  if(x.status==='transit')addMover(pts,{color:'#e0fffb',speed:R(.08,.16),t:rnd()*.8,layer:LY.scen,size:8});
+  if(x.status==='late')pulse(x.s.c,'#fbbf24',28)},i*22));
+ map.flyToBounds(L.latLngBounds([w.c,...st.map(x=>x.s.c)]),{...pad(),duration:1.2,maxZoom:10});
+ const n=t=>st.filter(x=>x.status===t).length,late=st.filter(x=>x.status==='late');
+ panel.innerHTML=`<div class="eyebrow">Shipments today</div><h2>${w.en}</h2><div class="sub">${st.length} restaurant drops · live from 3PL and own fleet</div>
+ <div class="seg">${WH.map(x=>`<button class="${x===w?'on':''}" onclick="shipments('${x.key}')">${x.en.replace(' Warehouse','')}</button>`).join('')}</div>
+ <div class="grid2" style="grid-template-columns:1fr 1fr 1fr"><div class="stat"><span>Delivered</span><b style="color:var(--ok)">${n('done')}</b></div><div class="stat"><span>In transit</span><b style="color:var(--accent)">${n('transit')}</b></div><div class="stat"><span>Delayed</span><b style="color:var(--warn)">${n('late')}</b></div></div>
+ <div class="grid2"><div class="stat"><span>${CARRIER.own.en}</span><b>${st.filter(x=>x.car===CARRIER.own).length} drops</b></div><div class="stat"><span>Al Masar (3PL)</span><b>${st.filter(x=>x.car===CARRIER.tpl).length} drops</b></div></div>
+ <h4>Delayed</h4>${late.map(x=>`<div class="li click" onclick="selectStore(stores[${x.s.id}])"><div><b>${x.s.en}</b><span>${x.why} · ${x.car.en}</span></div><span class="tag warn">+${20+(x.s.id%5)*15} min</span></div>`).join('')||'<div class="sub">No delays</div>'}
+ <div class="card"><div class="ct">SLA approach</div>Delays are tracked and reported to BFS and the licensee. They're not penalized automatically, because some causes are outside anyone's control.</div>`}
+
+const SHIRT='<svg viewBox="0 0 24 24"><path d="M8 3 3 6l2 5 2-1v11h10V10l2 1 2-5-5-3c-.5 1.5-2 2.5-4 2.5S8.5 4.5 8 3z"/></svg>';
+const BOX='<svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg>';
+let phoneState=null;
+function showPhone(s,x){
+ const qty=Math.max(1,Math.round((.8-x.pct/100)*x.it.cap)),v=SK[x.it.sup],pr=PRICES[x.it.k];
+ phoneState={s,x,qty,v};
+ $('#scr').innerHTML=`<div class="ph-top"><b>${s.en}</b><small>Suggested order · ${s.lic.en}</small></div>
+ <div class="ph-body"><div class="ph-item"><div class="ph-ic">${x.it.k==='uni'?SHIRT:BOX}</div><div><b>${x.it.en}</b><span>${x.qty} ${x.it.unit} left · below reorder point</span></div></div>
+ <div class="ph-bar"><i style="width:${x.pct}%"></i><em></em></div>
+ <div class="ph-qty"><button onclick="phoneQty(-1)">−</button><div><b id="pq">${qty}</b><small>suggested quantity</small></div><button onclick="phoneQty(1)">+</button></div>
+ <div class="ph-sup">Approved supplier: <b>${v.en}</b><br>${pr?`Agreed price: SAR ${pr.p[s.lic.id]}`:'Price as per contract'} · delivery in 3 days</div>
+ <button class="ph-btn" onclick="phoneApprove()">Approve</button><div class="ph-note">Creates the PO in Penny and sends it to Dynamics</div></div>`;
+ $('#phone').classList.add('show')}
+function phoneQty(d){phoneState.qty=Math.max(1,phoneState.qty+d*(phoneState.x.it.cap>=100?10:1));$('#pq').textContent=phoneState.qty}
+function phoneApprove(){const p=phoneState,po='PO-'+(88200+p.s.id);
+ $('#scr').innerHTML=`<div class="ph-top"><b>${p.s.en}</b><small>Suggested order</small></div><div class="ph-done"><div class="okc"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></div><b>Order sent</b><span>${p.qty} ${p.x.it.unit} · ${p.v.en}</span><span class="mono">${po}</span></div>`;
+ toast(`${po} created in Penny · synced to Dynamics 365 · ${p.v.en} notified`);
+ const pts=arc(p.v.c,p.s.c,.2,50);line(pts,'#34d399',LY.scen,{w:2.4});addMover(pts,{color:'#34d399',speed:.25,layer:LY.scen,size:11})}
+function reorder(s){
+ clearScenario();setActive('reorder');
+ const low=[];stores.forEach(st=>st.low.forEach(x=>low.push({s:st,x})));low.sort((a,b)=>a.x.pct-b.x.pct);
+ hl(lowStores);lowStores.forEach(x=>pulse(x.c,'#fbbf24',30));
+ const focus=s?{s,x:s.stock.slice().sort((a,b)=>a.pct-b.pct)[0]}:{s:demoLow,x:demoLow.stock[5]};
+ selRing(focus.s.c);
+ const pb=innerWidth>1300?{...pad(),paddingBottomRight:[690,66]}:pad();
+ if(s)map.flyTo(s.c,11,{duration:1.1});else map.flyToBounds(L.latLngBounds(lowStores.map(x=>x.c)),{...pb,duration:1.2});
+ later(()=>showPhone(focus.s,focus.x),700);
+ panel.innerHTML=`<div class="eyebrow" style="color:var(--warn)">Low stock · suggested orders</div><h2>${low.length} items below reorder point</h2><div class="sub">across ${lowStores.length} restaurants · reorder point is 25% of par, set per item</div>
+ <div class="card"><div class="ct">How it works</div>Penny watches stock against each restaurant's sales history. When an item drops under the reorder point it <b>suggests</b> an order from the BFS-approved supplier at the contract price. The manager approves with one tap. Nothing is ordered automatically.</div>
+ <h4>Lowest first</h4>${low.slice(0,24).map(r=>`<div class="li click" onclick="reorder(stores[${r.s.id}])"><div class="l2"><span class="bul" style="--c:${r.s.lic.color}"></span><div><b>${r.x.it.en} <span>· ${r.x.qty} ${r.x.it.unit} left</span></b><span>${r.s.en} · ${r.s.city.en}</span></div></div><span class="tag ${r.x.pct<15?'bad':'warn'}">${r.x.pct}%</span></div>`).join('')}`}
+
+function abnormal(){
+ clearScenario();setActive('abn');hl(ABN.map(a=>a.s));
+ ABN.forEach((a,i)=>later(()=>{pulse(a.s.c,'#ff4d6d',58);const v=SK[IK[a.it].sup];line(arc(v.c,a.s.c,.2,50),'#ff4d6d',LY.scen,{w:1.8})},i*300));
+ map.flyToBounds(L.latLngBounds(ABN.flatMap(a=>[a.s.c,SK[IK[a.it].sup].c])),{...pad(),duration:1.2});
+ panel.innerHTML=`<div class="eyebrow" style="color:var(--danger)">Abnormal orders</div><h2>${ABN.length} orders need a second look</h2><div class="sub">Every order is checked against POS sales, stock on hand and what's already in transit</div>
+ ${ABN.map(a=>`<div class="card bad"><div class="ct">${a.t}</div><b>${a.s.en}</b> · ${a.s.lic.en}<br>${a.d}<div class="nums">${a.type==='dup'?'<div><b>20</b>on hand</div><div><b>100</b>in transit</div><div><b>100</b>ordered</div>':a.type==='resale'?'<div><b>42</b>tins bought</div><div><b>~15</b>POS supports</div><div><b>2.7×</b>ratio</div>':'<div><b>+64%</b>vs average</div><div><b>0%</b>sales change</div><div><b>3</b>days</div>'}</div><button class="btn sm" onclick="selectStore(stores[${a.s.id}])">${a.act} · open restaurant</button></div>`).join('')}`}
+
+function priceGov(k){
+ clearScenario();setActive('price');mapEl.classList.add('hide-terr');const p=PRICES[k],v=SK[p.sup],it=IK[k];
+ REG.forEach(r=>{const l=LK[r.lic],vv=(p.p[l.id]-p.rec)/p.rec*100,col=vv>5?'#ff4d6d':vv>2?'#fbbf24':'#34d399';
+  L.polygon(r.poly,{color:col,weight:2,opacity:.9,fillColor:col,fillOpacity:.16,interactive:false}).addTo(LY.scen);
+  label(r.center,`SAR ${p.p[l.id]}<small>${vv>0?'+':''}${vv.toFixed(1)}% · ${l.en}</small>`,vv>5?'bad':vv>2?'':'ok');
+  later(()=>line(arc(v.c,r.center,.2,50),col,LY.scen,{w:1.4,op:.7}),300)});
+ pulse(v.c,'#fbbf24',50);map.flyToBounds(allBounds,{...pad(),duration:1.2});
+ panel.innerHTML=`<div class="eyebrow">Price governance</div><h2>${it.en}</h2><div class="sub">${v.en} · BFS recommended price SAR ${p.rec} ${p.unit}</div>
+ <div class="seg">${Object.keys(PRICES).map(x=>`<button class="${x===k?'on':''}" onclick="priceGov('${x}')">${IK[x].en.replace(' 18 L','').replace('Staff ','').replace('Packaging ','')}</button>`).join('')}</div>
+ <h4>What each licensee pays</h4>${LIC.map(l=>{const vv=(p.p[l.id]-p.rec)/p.rec*100;return `<div class="prog"><div class="pl"><span class="swt" style="background:${l.color}"></span>${l.en}<b>SAR ${p.p[l.id]}</b></div><div class="bar"><i style="width:${Math.min(100,p.p[l.id]/(p.rec*1.12)*100)}%;background:${vv>5?'#ff4d6d':vv>2?'#fbbf24':'#34d399'};color:${vv>5?'#ff4d6d':'#34d399'}"></i></div><div class="pn">${vv>0?'+':''}${vv.toFixed(1)}% vs recommended</div></div>`}).join('')}
+ <div class="card"><div class="ct">Why this matters</div>Licensees can renegotiate with suppliers, which is fine. What BFS couldn't see was <b>one supplier charging different licensees different prices</b> for the same line. Penny tracks every line price on every PO.</div>
+ <button class="btn" onclick="toast('Price alignment request sent to ${v.en} · licensees copied')">Ask the supplier to align prices</button>`}
+
+function royalties(){
+ clearScenario();setActive('roy');mapEl.classList.add('hide-terr');map.flyToBounds(allBounds,{...pad(),duration:1.2});
+ const ST=['Paid','Paid','Issued','Issued'];
+ const rows=LIC.map((l,i)=>{const net=l.stores.reduce((a,s)=>a+s.sales*31*.93,0);return{l,net,roy:net*RATE/100,st:ST[i]}});
+ const tot=rows.reduce((a,r)=>a+r.roy,0),max=Math.max(...rows.map(r=>r.roy));
+ rows.forEach((r,i)=>r.l.regions.forEach((g,j)=>later(()=>{pulse(g.center,'#fbbf24',70);label(g.center,`SAR ${fmt(r.roy*g.n/r.l.n)}<small>${g.en} · ${r.st}</small>`)},(i*2+j)*220)));
+ panel.innerHTML=`<div class="eyebrow">Royalty invoices · August 2026</div><h2>SAR ${fmt(tot)} invoiced to ${LIC.length} licensees</h2><div class="sub">Same rate for every licensee (${RATE}%, demo figure) · calculated in Dynamics, shown here</div>
+ <h4>Daily pipeline</h4><div class="steps"><div class="step">POS day close · 02:45<span>${stores.length} restaurants</span></div><div class="step">Push to Azure · 11:00<span>automatic batch job</span></div><div class="step">Dynamics 365 calculates<span>royalty per licensee, per month</span></div><div class="step">Invoice issued<span>no manual calculation</span></div></div>
+ <h4>By licensee</h4>${rows.map(r=>`<div class="prog"><div class="pl"><span class="swt" style="background:${r.l.color}"></span>${r.l.en}<b>SAR ${fmt(r.roy)}</b></div><div class="bar"><i style="width:${r.roy/max*100}%;background:${r.l.color};color:${r.l.color}"></i></div><div class="pn">${r.l.n} restaurants · net sales SAR ${fmt(r.net)} · <span style="color:${r.st==='Paid'?'var(--ok)':'var(--warn)'}">${r.st}</span></div></div>`).join('')}
+ <div class="card"><div class="ct">What Penny adds</div>The licensee sees the same numbers BFS sees, down to restaurant and day. The ${PREOPEN.length} pre-opening sites are excluded until they actually open.</div>`}
+
+function contracts(){
+ clearScenario();setActive('ctr');
+ const ex=CONTRACTS.filter(c=>c.d<60).sort((a,b)=>a.d-b.d);
+ ex.forEach((c,i)=>later(()=>{pulse(c.v.c,c.d<30?'#ff4d6d':'#fbbf24',44);c.l.regions.forEach(r=>line(arc(c.v.c,r.center,.2,50),c.d<30?'#ff4d6d':'#fbbf24',LY.scen,{w:1.3,op:.7}))},i*200));
+ map.flyToBounds(allBounds,{...pad(),duration:1.2});
+ panel.innerHTML=`<div class="eyebrow" style="color:var(--warn)">Contract renewals</div><h2>${ex.length} supply contracts expire in 60 days</h2><div class="sub">Direct supply terms: price, delivery window and payment terms agreed in advance</div>
+ <h4>Soonest first</h4>${ex.map(c=>`<div class="li"><div class="l2"><span class="bul" style="--c:${c.l.color}"></span><div><b>${c.v.en} × ${c.l.en}</b><span>${c.basis} · ${c.win} · ${c.pay}</span></div></div>${tag(c.d)}</div>`).join('')}
+ <button class="btn" onclick="toast('${ex.length} renewals routed to Legal (CLM) with the current terms attached')">Route ${ex.length} renewals to Legal</button>
+ <div class="card"><div class="ct">Next step: framework agreements</div>No MFAs are active today. When BFS introduces them, each can carry a spend cap by quantity or by price, and Penny stops orders that would breach it.</div>`}
+
+function preopen(){
+ clearScenario();setActive('pre');
+ PREOPEN.forEach((p,i)=>later(()=>{const w=WH.reduce((a,x)=>km(x.c,p.c)<km(a.c,p.c)?x:a);
+  L.marker(p.c,{icon:L.divIcon({className:'',html:'<div class="newsite"></div>',iconSize:[18,18],iconAnchor:[9,9]}),interactive:false}).addTo(LY.scen);
+  pulse(p.c,p.slip?'#fbbf24':'#c4b5fd',56);line(arc(w.c,p.c,.2,40),'#c4b5fd',LY.scen,{w:1.2,op:.6})},i*250));
+ map.flyToBounds(L.latLngBounds(PREOPEN.map(p=>p.c)),{...pad(),duration:1.2});
+ panel.innerHTML=`<div class="eyebrow">Pre-opening sites</div><h2>${PREOPEN.length} restaurants getting ready to open</h2><div class="sub">Handled by the licensee's engineering team and consultants</div>
+ <h4>Sites</h4>${PREOPEN.map(p=>`<div class="li"><div class="l2"><span class="bul" style="--c:${LK[p.lic].color}"></span><div><b>${p.en} <span>· ${p.city}</span></b><span>${p.st} · ${p.why}</span></div></div><span class="tag ${p.slip?'warn':'ok'}">${p.slip?p.exp+' → '+p.now:p.now}</span></div>`).join('')}
+ <div class="card"><div class="ct">How delays are handled</div>Openings slip for real reasons: pipes, air conditioning, cold rooms. Penny tracks the dates and reasons for BFS without penalties, and royalty starts from the actual opening date.</div>
+ <div class="card"><div class="ct">Before launch</div>When a site is ready, the supply chain team confirms the date and Penny notifies every approved supplier so the first delivery arrives on time.</div>`}
+
+function flyTruck(id){clearScenario();setActive(null);const t=inTransit.find(x=>x.id===id),p=t.mv.m.getLatLng();map.flyTo(p,9,{duration:1.2});
+ panel.innerHTML=`<div class="eyebrow" style="color:var(--danger)">Cold chain</div><h2>Truck ${t.id} at ${t.temp.toFixed(1)}°C</h2><div class="sub">${t.car.en} · ${t.s.wh.en} → ${t.s.en}</div>
+ <div class="grid2"><div class="stat"><span>Limit</span><b>5.0°C</b></div><div class="stat"><span>Above limit for</span><b style="color:var(--danger)">${RI(14,40)} min</b></div></div>
+ <div class="card"><div class="ct">Automatic action</div>Receipt at the restaurant is on hold. The manager sees a warning on the receiving screen and records a temperature before accepting.</div>`}
+
+home();
+</script>
+</body>
+</html>
